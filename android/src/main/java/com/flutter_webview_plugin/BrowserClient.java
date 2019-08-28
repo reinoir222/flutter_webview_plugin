@@ -8,6 +8,8 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import io.flutter.plugin.common.MethodChannel;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -19,6 +21,7 @@ import java.util.regex.Pattern;
 
 public class BrowserClient extends WebViewClient {
     private Pattern invalidUrlPattern = null;
+    private boolean hasNavigationDelegate = false;
 
     public BrowserClient() {
         this(null);
@@ -37,6 +40,10 @@ public class BrowserClient extends WebViewClient {
         } else {
             invalidUrlPattern = null;
         }
+    }
+
+    public void updateHasNav(boolean hasNav) {
+        hasNavigationDelegate = hasNav;
     }
 
     @Override
@@ -67,26 +74,44 @@ public class BrowserClient extends WebViewClient {
         // returning true causes the current WebView to abort loading the URL,
         // while returning false causes the WebView to continue loading the URL as usual.
         String url = request.getUrl().toString();
+        boolean isForMainFrame = request.isForMainFrame();
         boolean isInvalid = checkInvalidUrl(url);
+        if (isInvalid) return true;
+
+        if (!this.hasNavigationDelegate) return false;
+        HashMap<String, Object> args = new HashMap<>();
+        args.put("url", url);
+        args.put("isForMainFrame", isForMainFrame);
+        if (isForMainFrame) {
+            FlutterWebviewPlugin.channel.invokeMethod(
+                    "onNavRequest",
+                    args,
+                    new OnNavigationRequestResult(url, request.getRequestHeaders(), view)
+            );
+        } else {
+            FlutterWebviewPlugin.channel.invokeMethod("onNavRequest", args);
+        }
+        // We must make a synchronous decision here whether to allow the navigation or not,
+        // if the Dart code has set a navigation delegate we want that delegate to decide whether
+        // to navigate or not, and as we cannot get a response from the Dart delegate synchronously we
+        // return true here to block the navigation, if the Dart delegate decides to allow the
+        // navigation the plugin will later make an addition loadUrl call for this url.
+        //
+        // Since we cannot call loadUrl for a subframe, we currently only allow the delegate to stop
+        // navigations that target the main frame, if the request is not for the main frame
+        // we just return false to allow the navigation.
+        //
+        // For more details see: https://github.com/flutter/flutter/issues/25329#issuecomment-464863209
+        return isForMainFrame;
+
+        /*
         Map<String, Object> data = new HashMap<>();
         data.put("url", url);
         data.put("type", isInvalid ? "abortLoad" : "shouldStart");
 
         FlutterWebviewPlugin.channel.invokeMethod("onState", data);
         return isInvalid;
-    }
-
-    @Override
-    public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        // returning true causes the current WebView to abort loading the URL,
-        // while returning false causes the WebView to continue loading the URL as usual.
-        boolean isInvalid = checkInvalidUrl(url);
-        Map<String, Object> data = new HashMap<>();
-        data.put("url", url);
-        data.put("type", isInvalid ? "abortLoad" : "shouldStart");
-
-        FlutterWebviewPlugin.channel.invokeMethod("onState", data);
-        return isInvalid;
+        */
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
@@ -114,6 +139,45 @@ public class BrowserClient extends WebViewClient {
         } else {
             Matcher matcher = invalidUrlPattern.matcher(url);
             return matcher.lookingAt();
+        }
+    }
+
+    private static class OnNavigationRequestResult implements MethodChannel.Result {
+        private final String url;
+        private final Map<String, String> headers;
+        private final WebView webView;
+
+        private OnNavigationRequestResult(String url, Map<String, String> headers, WebView webView) {
+            this.url = url;
+            this.headers = headers;
+            this.webView = webView;
+        }
+
+        @Override
+        public void success(Object shouldLoad) {
+            Boolean typedShouldLoad = (Boolean) shouldLoad;
+            if (typedShouldLoad) {
+                loadUrl();
+            }
+        }
+
+        @Override
+        public void error(String errorCode, String s1, Object o) {
+            throw new IllegalStateException("onNavRequest calls must succeed: " + s1);
+        }
+
+        @Override
+        public void notImplemented() {
+            throw new IllegalStateException(
+                    "onNavRequest must be implemented by the webview method channel");
+        }
+
+        private void loadUrl() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                webView.loadUrl(url, headers);
+            } else {
+                webView.loadUrl(url);
+            }
         }
     }
 }

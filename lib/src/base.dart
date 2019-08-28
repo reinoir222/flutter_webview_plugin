@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'navigation.dart';
+
 const _kChannel = 'flutter_webview_plugin';
 
 // TODO: more general state for iOS/android
@@ -21,6 +23,8 @@ class FlutterWebviewPlugin {
 
   static FlutterWebviewPlugin _instance;
 
+  static NavigationDelegate navigationDelegate;
+
   final _channel = const MethodChannel(_kChannel);
 
   final _onBack = StreamController<Null>.broadcast();
@@ -32,7 +36,7 @@ class FlutterWebviewPlugin {
   final _onProgressChanged = new StreamController<double>.broadcast();
   final _onHttpError = StreamController<WebViewHttpError>.broadcast();
 
-  Future<Null> _handleMessages(MethodCall call) async {
+  Future<bool> _handleMessages(MethodCall call) async {
     switch (call.method) {
       case 'onBack':
         _onBack.add(null);
@@ -43,6 +47,11 @@ class FlutterWebviewPlugin {
       case 'onUrlChanged':
         _onUrlChanged.add(call.arguments['url']);
         break;
+      case 'onNavRequest':
+        final NavigationRequest request =
+        NavigationRequest(url: call.arguments['url'], isForMainFrame: call.arguments['isForMainFrame']);
+        return navigationDelegate == null ||
+            navigationDelegate(request) == NavigationDecision.navigate;
       case 'onScrollXChanged':
         _onScrollXChanged.add(call.arguments['xDirection']);
         break;
@@ -63,6 +72,7 @@ class FlutterWebviewPlugin {
         _onHttpError.add(WebViewHttpError(call.arguments['code'], call.arguments['url']));
         break;
     }
+    return true;
   }
 
   /// Listening the OnDestroy LifeCycle Event for Android
@@ -142,7 +152,13 @@ class FlutterWebviewPlugin {
     String invalidUrlRegex,
     bool geolocationEnabled,
     bool debuggingEnabled,
+    dynamic setNavigationDelegate,
   }) async {
+    if (setNavigationDelegate is NavigationDelegate) {
+      FlutterWebviewPlugin.navigationDelegate = setNavigationDelegate;
+    } else if (setNavigationDelegate == false) {
+      FlutterWebviewPlugin.navigationDelegate = null;
+    }
     final args = <String, dynamic>{
       'url': url,
       'withJavascript': withJavascript ?? true,
@@ -165,6 +181,7 @@ class FlutterWebviewPlugin {
       'geolocationEnabled': geolocationEnabled ?? false,
       'withOverviewMode': withOverviewMode ?? false,
       'debuggingEnabled': debuggingEnabled ?? false,
+      'hasNavigationDelegate' : FlutterWebviewPlugin.navigationDelegate != null
     };
 
     if (headers != null) {
@@ -293,4 +310,11 @@ class WebViewHttpError {
 
   final String url;
   final String code;
+}
+
+class NavRequest {
+  NavRequest(this.url, this.isForMainFrame);
+
+  final String url;
+  final bool isForMainFrame;
 }

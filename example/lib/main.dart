@@ -173,6 +173,15 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }
     });
+
+    FlutterWebviewPlugin.navigationDelegate = (NavigationRequest r) {
+      print("nav request: ${r.url}");
+      if (r.url.startsWith('https://flutter.dev/docs/get-started/install')) {
+        print("nav prevent");
+        return NavigationDecision.prevent;
+      }
+      return NavigationDecision.navigate;
+    };
   }
 
   @override
