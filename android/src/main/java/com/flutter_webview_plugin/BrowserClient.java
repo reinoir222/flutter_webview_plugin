@@ -76,7 +76,10 @@ public class BrowserClient extends WebViewClient {
         String url = request.getUrl().toString();
         boolean isForMainFrame = request.isForMainFrame();
         boolean isInvalid = checkInvalidUrl(url);
-        if (isInvalid) return true;
+        if (isInvalid) {
+            sendState(url, isInvalid);
+            return true;
+        }
 
         if (!this.hasNavigationDelegate) return false;
         HashMap<String, Object> args = new HashMap<>();
@@ -103,15 +106,6 @@ public class BrowserClient extends WebViewClient {
         //
         // For more details see: https://github.com/flutter/flutter/issues/25329#issuecomment-464863209
         return isForMainFrame;
-
-        /*
-        Map<String, Object> data = new HashMap<>();
-        data.put("url", url);
-        data.put("type", isInvalid ? "abortLoad" : "shouldStart");
-
-        FlutterWebviewPlugin.channel.invokeMethod("onState", data);
-        return isInvalid;
-        */
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)
@@ -142,6 +136,13 @@ public class BrowserClient extends WebViewClient {
         }
     }
 
+    public static void sendState(String url, boolean isInvalid) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        data.put("type", isInvalid ? "abortLoad" : "shouldStart");
+        FlutterWebviewPlugin.channel.invokeMethod("onState", data);
+    }
+
     private static class OnNavigationRequestResult implements MethodChannel.Result {
         private final String url;
         private final Map<String, String> headers;
@@ -156,6 +157,7 @@ public class BrowserClient extends WebViewClient {
         @Override
         public void success(Object shouldLoad) {
             Boolean typedShouldLoad = (Boolean) shouldLoad;
+            sendState(url, !typedShouldLoad);
             if (typedShouldLoad) {
                 loadUrl();
             }
