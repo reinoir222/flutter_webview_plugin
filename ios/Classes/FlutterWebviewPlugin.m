@@ -7,6 +7,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     BOOL _enableAppScheme;
     BOOL _enableZoom;
     NSString* _invalidUrlRegex;
+    BOOL _hasNavDelegate;
 }
 @end
 
@@ -86,6 +87,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     NSNumber *scrollBar = call.arguments[@"scrollBar"];
     NSNumber *withJavascript = call.arguments[@"withJavascript"];
     _invalidUrlRegex = call.arguments[@"invalidUrlRegex"];
+    _hasNavDelegate = call.arguments[@"hasNavigationDelegate"];
 
     if (clearCache != (id)[NSNull null] && [clearCache boolValue]) {
         [[NSURLCache sharedURLCache] removeAllCachedResponses];
@@ -281,8 +283,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         }];
 }
 
-- (bool)checkInvalidUrl:(NSURL*)url {
-  NSString* urlString = url != nil ? [url absoluteString] : nil;
+- (bool)checkInvalidUrl:(NSString*)urlString {
   if (_invalidUrlRegex != [NSNull null] && urlString != nil) {
     NSError* error = NULL;
     NSRegularExpression* regex =
@@ -298,37 +299,87 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
   }
 }
 
+- (void)sendState:(NSString*)url invalid:(BOOL*)invalid {
+  id data = @{@"url": url,
+    @"type": invalid ? @"abortLoad" : @"shouldStart",
+    //@"navigationType": [NSNumber numberWithInt:navigationAction.navigationType]
+  };
+  [channel invokeMethod:@"onState" arguments:data];
+}
+
 #pragma mark -- WkWebView Delegate
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
     decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
 
-    BOOL isInvalid = [self checkInvalidUrl: navigationAction.request.URL];
-
-    id data = @{@"url": navigationAction.request.URL.absoluteString,
-                @"type": isInvalid ? @"abortLoad" : @"shouldStart",
-                @"navigationType": [NSNumber numberWithInt:navigationAction.navigationType]};
-    [channel invokeMethod:@"onState" arguments:data];
-
     if (navigationAction.navigationType == WKNavigationTypeBackForward) {
         [channel invokeMethod:@"onBackPressed" arguments:nil];
-    } else if (!isInvalid) {
-        id data = @{@"url": navigationAction.request.URL.absoluteString};
-        [channel invokeMethod:@"onUrlChanged" arguments:data];
+    }
+    if (!_enableAppScheme &&
+            !([webView.URL.scheme isEqualToString:@"http"] ||
+             [webView.URL.scheme isEqualToString:@"https"] ||
+             [webView.URL.scheme isEqualToString:@"about"] ||
+             [webView.URL.scheme isEqualToString:@"file"])
+    ) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
     }
 
-    if (_enableAppScheme ||
-        ([webView.URL.scheme isEqualToString:@"http"] ||
-         [webView.URL.scheme isEqualToString:@"https"] ||
-         [webView.URL.scheme isEqualToString:@"about"] ||
-         [webView.URL.scheme isEqualToString:@"file"])) {
-         if (isInvalid) {
-            decisionHandler(WKNavigationActionPolicyCancel);
-         } else {
-            decisionHandler(WKNavigationActionPolicyAllow);
-         }
-    } else {
-        decisionHandler(WKNavigationActionPolicyCancel);
+    NSString* url = navigationAction.request.URL.absoluteString;
+    BOOL isInvalid = [self checkInvalidUrl: url];
+
+    if (isInvalid) {
+      [self sendState: url invalid: isInvalid];
+      decisionHandler(WKNavigationActionPolicyCancel);
+      return;
     }
+
+
+
+    if (!_hasNavDelegate) {
+        id data = @{@"url": url};
+        [channel invokeMethod:@"onUrlChanged" arguments:data];
+        decisionHandler(WKNavigationActionPolicyAllow);
+        return;
+    }
+    NSDictionary* arguments = @{
+        @"url" : url,
+        @"isForMainFrame" : @(navigationAction.targetFrame.isMainFrame)
+    };
+    [channel invokeMethod:@"onNavRequest"
+        arguments:arguments
+        result:^(id _Nullable result) {
+            if ([result isKindOfClass:[FlutterError class]]) {
+                NSLog(@"onNavRequest has unexpectedly completed with an error, "
+                      @"allowing navigation.");
+                decisionHandler(WKNavigationActionPolicyAllow);
+                return;
+            }
+            if (result == FlutterMethodNotImplemented) {
+                 NSLog(@"onNavRequest was unexepectedly not implemented: %@, "
+                       @"allowing navigation.",
+                       result);
+                 decisionHandler(WKNavigationActionPolicyAllow);
+                 return;
+            }
+            if (![result isKindOfClass:[NSNumber class]]) {
+                 NSLog(@"onNavRequest unexpectedly returned a non boolean value: "
+                       @"%@, allowing navigation.",
+                       result);
+                 decisionHandler(WKNavigationActionPolicyAllow);
+                 return;
+            }
+            NSNumber* typedResult = result;
+            BOOL allow = [typedResult boolValue];
+            [self sendState: url invalid: !allow];
+            if (allow) {
+                id data = @{@"url": url};
+                [channel invokeMethod:@"onUrlChanged" arguments:data];
+                decisionHandler(WKNavigationActionPolicyAllow);
+            } else {
+                decisionHandler(WKNavigationActionPolicyCancel);
+            }
+        }
+    ];
 }
 
 - (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration
