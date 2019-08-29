@@ -160,6 +160,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     _onStateChanged = flutterWebViewPlugin.onStateChanged.listen((WebViewStateChanged state) {
       if (mounted) {
+        flutterWebViewPlugin.evalJavascript("zFApp.postMessage('test: onState ${state.type}');");
         setState(() {
           _history.add('onStateChanged: ${state.type} ${state.url}');
         });
@@ -182,6 +183,16 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       return NavigationDecision.navigate;
     };
+
+    final List<JavascriptChannel> channels = <JavascriptChannel>[
+      JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
+    ];
+    flutterWebViewPlugin.javascriptChannel = channels.toSet();
+  }
+
+  void _processJsMessage (JavascriptMessage message) {
+    print("receive zFApp channel msg: ${message.message}");
+    // todo
   }
 
   @override

@@ -1,4 +1,5 @@
 #import "FlutterWebviewPlugin.h"
+#import "JavaScriptChannelHandler.h"
 
 static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
 
@@ -8,6 +9,8 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     BOOL _enableZoom;
     NSString* _invalidUrlRegex;
     BOOL _hasNavDelegate;
+    // The set of registered JavaScript channel names.
+    NSMutableSet* _javaScriptChannelNames;
 }
 @end
 
@@ -27,6 +30,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     self = [super init];
     if (self) {
         self.viewController = viewController;
+        self.jsChannels = [NSMutableArray array];
     }
     return self;
 }
@@ -70,6 +74,12 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         result(nil);
     } else if ([@"reload" isEqualToString:call.method]) {
         [self reload];
+        result(nil);
+    } else if ([[call method] isEqualToString:@"addJavascriptChannels"]) {
+        [self onAddJavaScriptChannels:call result:result];
+        result(nil);
+    } else if ([[call method] isEqualToString:@"removeJavascriptChannels"]) {
+        [self onRemoveJavaScriptChannels:call result:result];
         result(nil);
     } else {
         result(FlutterMethodNotImplemented);
@@ -119,7 +129,17 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         rc = self.viewController.view.bounds;
     }
 
-    self.webview = [[WKWebView alloc] initWithFrame:rc];
+    _javaScriptChannelNames = [[NSMutableSet alloc] init];
+
+    WKUserContentController* userContentController = [[WKUserContentController alloc] init];
+    if ([self.jsChannels count] > 0) {
+        [_javaScriptChannelNames addObjectsFromArray:self.jsChannels];
+        [self registerJavaScriptChannels:_javaScriptChannelNames controller:userContentController];
+    }
+    WKWebViewConfiguration* configuration = [[WKWebViewConfiguration alloc] init];
+        configuration.userContentController = userContentController;
+
+    self.webview = [[WKWebView alloc] initWithFrame:rc configuration:configuration];
     self.webview.UIDelegate = self;
     self.webview.navigationDelegate = self;
     self.webview.scrollView.delegate = self;
@@ -411,6 +431,58 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         [channel invokeMethod:@"onHttpError" arguments:@{@"code": [NSString stringWithFormat:@"%ld", response.statusCode], @"url": webView.URL.absoluteString}];
     }
     decisionHandler(WKNavigationResponsePolicyAllow);
+}
+
+- (void)registerJavaScriptChannels:(NSSet*)channelNames
+                        controller:(WKUserContentController*)controller {
+  for (NSString* channelName in channelNames) {
+    FLTJavaScriptChannel* c =
+        [[FLTJavaScriptChannel alloc] initWithMethodChannel:channel
+                                      javaScriptChannelName:channelName];
+    [controller addScriptMessageHandler:c name:channelName];
+    NSString* wrapperSource = [NSString
+        stringWithFormat:@"window.%@ = webkit.messageHandlers.%@;", channelName, channelName];
+    WKUserScript* wrapperScript =
+        [[WKUserScript alloc] initWithSource:wrapperSource
+                               injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                            forMainFrameOnly:NO];
+    [controller addUserScript:wrapperScript];
+  }
+}
+
+- (void)onAddJavaScriptChannels:(FlutterMethodCall*)call result:(FlutterResult)result {
+  NSArray* channelNames = [call arguments];
+  NSSet* channelNamesSet = [[NSSet alloc] initWithArray:channelNames];
+  [self.jsChannels addObjectsFromArray:channelNames];
+  if (self.webview != nil) {
+    [_javaScriptChannelNames addObjectsFromArray:channelNames];
+    [self registerJavaScriptChannels:channelNamesSet
+          controller:self.webview.configuration.userContentController];
+  }
+  result(nil);
+}
+
+- (void)onRemoveJavaScriptChannels:(FlutterMethodCall*)call result:(FlutterResult)result {
+  NSArray* channelNamesToRemove = [call arguments];
+  [self.jsChannels removeObjectsInArray:channelNamesToRemove];
+
+  if (self.webview != nil) {
+    // WkWebView does not support removing a single user script, so instead we remove all
+    // user scripts, all message handlers. And re-register channels that shouldn't be removed.
+    [self.webview.configuration.userContentController removeAllUserScripts];
+    for (NSString* channelName in _javaScriptChannelNames) {
+      [self.webview.configuration.userContentController removeScriptMessageHandlerForName:channelName];
+    }
+
+    for (NSString* channelName in channelNamesToRemove) {
+      [_javaScriptChannelNames removeObject:channelName];
+    }
+
+    [self registerJavaScriptChannels:_javaScriptChannelNames
+                          controller:self.webview.configuration.userContentController];
+  }
+
+  result(nil);
 }
 
 #pragma mark -- UIScrollViewDelegate

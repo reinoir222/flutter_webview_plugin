@@ -509,4 +509,24 @@ class WebviewManager {
             webView.stopLoading();
         }
     }
+
+    @SuppressWarnings("unchecked")
+    void addJavaScriptChannels(List<JavaScriptChannel> channels) {
+        if (webView != null){
+            for (JavaScriptChannel channel : channels) {
+                webView.addJavascriptInterface(channel, channel.javaScriptChannelName);
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    void removeJavaScriptChannels(MethodCall call, MethodChannel.Result result) {
+        if (webView != null){
+            List<String> channelNames = (List<String>) call.arguments;
+            for (String channelName : channelNames) {
+                webView.removeJavascriptInterface(channelName);
+            }
+        }
+        result.success(null);
+    }
 }

@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.os.Handler;
 import android.view.Display;
 import android.widget.FrameLayout;
 import android.webkit.CookieManager;
@@ -12,6 +13,8 @@ import android.webkit.ValueCallback;
 import android.os.Build;
 
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
@@ -27,6 +30,8 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     private Context context;
     static MethodChannel channel;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
+    private final Handler platformThreadHandler;
+    private List<JavaScriptChannel> jsChannels = new ArrayList<JavaScriptChannel>();
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
         channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
@@ -38,6 +43,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     private FlutterWebviewPlugin(Activity activity, Context context) {
         this.activity = activity;
         this.context = context;
+        this.platformThreadHandler = new Handler(context.getMainLooper());
     }
 
     @Override
@@ -79,6 +85,12 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             case "cleanCookies":
                 cleanCookies(call, result);
                 break;
+            case "addJavascriptChannels":
+                addJavaScriptChannels(call, result);
+                break;
+            case "removeJavascriptChannels":
+                removeJavaScriptChannels(call, result);
+                break;
             default:
                 result.notImplemented();
                 break;
@@ -109,6 +121,9 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
 
         if (webViewManager == null || webViewManager.closed == true) {
             webViewManager = new WebviewManager(activity, context);
+            if (!jsChannels.isEmpty()) {
+                webViewManager.addJavaScriptChannels(jsChannels);
+            }
         }
 
         FrameLayout.LayoutParams params = buildLayoutParams(call);
@@ -255,6 +270,32 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             });
         } else {
             CookieManager.getInstance().removeAllCookie();
+        }
+        result.success(null);
+    }
+
+    private void addJavaScriptChannels(MethodCall call, MethodChannel.Result result) {
+        List<String> channelNames = (List<String>) call.arguments;
+        for (String channelName : channelNames) {
+            jsChannels.add(new JavaScriptChannel(channel, channelName, platformThreadHandler));
+        }
+        if (webViewManager != null) {
+            webViewManager.addJavaScriptChannels(jsChannels);
+        }
+        result.success(null);
+    }
+
+    private void removeJavaScriptChannels(MethodCall call, MethodChannel.Result result) {
+        List<String> channelNames = (List<String>) call.arguments;
+        List<JavaScriptChannel> newChannels = new ArrayList<JavaScriptChannel>();
+        for (JavaScriptChannel c : jsChannels) {
+            if (channelNames.indexOf(c.javaScriptChannelName) < 0) {
+                newChannels.add(c);
+            }
+        }
+        jsChannels = newChannels;
+        if (webViewManager != null) {
+            webViewManager.removeJavaScriptChannels(call, result);
         }
         result.success(null);
     }
