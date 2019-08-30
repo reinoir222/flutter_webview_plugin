@@ -197,6 +197,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
+    print("dispose");
     // Every listener should be canceled, the same should be done with this stream.
     _onDestroy.cancel();
     _onUrlChanged.cancel();

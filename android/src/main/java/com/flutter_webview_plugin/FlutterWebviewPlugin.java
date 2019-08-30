@@ -31,7 +31,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     static MethodChannel channel;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
     private final Handler platformThreadHandler;
-    private List<JavaScriptChannel> jsChannels = new ArrayList<JavaScriptChannel>();
+    static List<JavaScriptChannel> jsChannels = new ArrayList<JavaScriptChannel>();
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
         channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
