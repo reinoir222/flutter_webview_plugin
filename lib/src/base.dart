@@ -312,14 +312,17 @@ class FlutterWebviewPlugin {
     if (!_checkJavascriptChannelNamesAreUnique(channels)) {
       return;
     }
+    print("set channels: " + channels.map((c) {return c.name;}).join(', '));
     final Set<String> currChannelNames = _javascriptChannels.keys.toSet();
     final Set<String> newChannelNames = _extractChannelNames(channels);
     final Set<String> channelsToAdd = newChannelNames.difference(currChannelNames);
     final Set<String> channelsToRemove = currChannelNames.difference(newChannelNames);
     if (channelsToRemove.isNotEmpty) {
+      print("remove channels: " + channelsToRemove.join(', '));
       removeJavascriptChannels(channelsToRemove);
     }
     if (channelsToAdd.isNotEmpty) {
+      print("add channels: " + channelsToAdd.join(', '));
       addJavascriptChannels(channelsToAdd);
     }
     _updateJavascriptChannelsFromSet(channels);

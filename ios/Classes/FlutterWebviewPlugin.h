@@ -8,3 +8,10 @@ static FlutterMethodChannel *channel;
 @property (nonatomic, retain) WKWebView *webview;
 @property (nonatomic, retain) NSMutableArray *jsChannels;
 @end
+
+@interface FLTJavaScriptChannel : NSObject <WKScriptMessageHandler>
+
+- (instancetype)initWithMethodChannel:(FlutterMethodChannel*)methodChannel
+                javaScriptChannelName:(NSString*)javaScriptChannelName;
+
+@end
