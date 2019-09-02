@@ -45,6 +45,7 @@ class JavaScriptChannel {
             HashMap<String, String> arguments = new HashMap<>();
             arguments.put("channel", javaScriptChannelName);
             arguments.put("message", message);
+            System.out.println("javascriptChannelMessage: " + arguments.toString());
             methodChannel.invokeMethod("javascriptChannelMessage", arguments);
           }
         };

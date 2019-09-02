@@ -514,6 +514,7 @@ class WebviewManager {
     void addJavaScriptChannels(List<JavaScriptChannel> channels) {
         if (webView != null){
             for (JavaScriptChannel channel : channels) {
+                System.out.println("add channel to webview: " + channel.javaScriptChannelName);
                 webView.addJavascriptInterface(channel, channel.javaScriptChannelName);
             }
         }

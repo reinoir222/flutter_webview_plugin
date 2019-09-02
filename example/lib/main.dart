@@ -127,6 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
     // Add a listener to on url changed
     _onUrlChanged = flutterWebViewPlugin.onUrlChanged.listen((String url) {
+      print("url change listened: $url");
       if (mounted) {
         setState(() {
           _history.add('onUrlChanged: $url');
@@ -141,8 +142,9 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }
     });
-    
+
     _onScrollYChanged = flutterWebViewPlugin.onScrollYChanged.listen((double y) {
+      print("scroll y listened: $y");
       if (mounted) {
         setState(() {
           _history.add('Scroll in Y Direction: $y');
@@ -159,7 +161,9 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     _onStateChanged = flutterWebViewPlugin.onStateChanged.listen((WebViewStateChanged state) {
+      print("state change listened: ${state.type}");
       if (mounted) {
+        print("send js msg");
         flutterWebViewPlugin.evalJavascript("zFApp.postMessage('test: onState ${state.type}');");
         setState(() {
           _history.add('onStateChanged: ${state.type} ${state.url}');
@@ -187,7 +191,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final List<JavascriptChannel> channels = <JavascriptChannel>[
       JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
     ];
-    flutterWebViewPlugin.javascriptChannel = channels.toSet();
+    FlutterWebviewPlugin.javascriptChannel = channels.toSet();
   }
 
   void _processJsMessage (JavascriptMessage message) {
@@ -235,6 +239,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   userAgent: kAndroidUserAgent,
                   invalidUrlRegex: r'^(https).+(twitter)', // prevent redirecting to twitter when user click on its icon in flutter website
                 );
+                flutterWebViewPlugin.evalJavascript("zFApp.postMessage('test channel');");
               },
               child: const Text('Open Webview (rect)'),
             ),

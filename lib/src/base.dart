@@ -22,6 +22,9 @@ class FlutterWebviewPlugin {
 
   FlutterWebviewPlugin._() {
     _channel.setMethodCallHandler(_handleMessages);
+    if (_javascriptChannels.isNotEmpty) {
+      addJavascriptChannels(_javascriptChannels.keys.toSet());
+    }
   }
 
   static FlutterWebviewPlugin _instance;
@@ -308,22 +311,24 @@ class FlutterWebviewPlugin {
     await _channel.invokeMethod('resize', args);
   }
 
-  set javascriptChannel(Set<JavascriptChannel> channels) {
+  static set javascriptChannel(Set<JavascriptChannel> channels) {
     if (!_checkJavascriptChannelNamesAreUnique(channels)) {
       return;
     }
-    print("set channels: " + channels.map((c) {return c.name;}).join(', '));
-    final Set<String> currChannelNames = _javascriptChannels.keys.toSet();
-    final Set<String> newChannelNames = _extractChannelNames(channels);
-    final Set<String> channelsToAdd = newChannelNames.difference(currChannelNames);
-    final Set<String> channelsToRemove = currChannelNames.difference(newChannelNames);
-    if (channelsToRemove.isNotEmpty) {
-      print("remove channels: " + channelsToRemove.join(', '));
-      removeJavascriptChannels(channelsToRemove);
-    }
-    if (channelsToAdd.isNotEmpty) {
-      print("add channels: " + channelsToAdd.join(', '));
-      addJavascriptChannels(channelsToAdd);
+    if (_instance != null) {
+      print("set channels: " + channels.map((c) {return c.name;}).join(', '));
+      final Set<String> currChannelNames = _javascriptChannels.keys.toSet();
+      final Set<String> newChannelNames = _extractChannelNames(channels);
+      final Set<String> channelsToAdd = newChannelNames.difference(currChannelNames);
+      final Set<String> channelsToRemove = currChannelNames.difference(newChannelNames);
+      if (channelsToRemove.isNotEmpty) {
+        print("remove channels: " + channelsToRemove.join(', '));
+        _instance.removeJavascriptChannels(channelsToRemove);
+      }
+      if (channelsToAdd.isNotEmpty) {
+        print("add channels: " + channelsToAdd.join(', '));
+        _instance.addJavascriptChannels(channelsToAdd);
+      }
     }
     _updateJavascriptChannelsFromSet(channels);
   }
