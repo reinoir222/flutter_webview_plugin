@@ -7,7 +7,7 @@ import 'package:flutter_webview_plugin/flutter_webview_plugin.dart';
 const kAndroidUserAgent =
     'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Mobile Safari/537.36';
 
-String selectedUrl = 'https://flutter.io';
+String selectedUrl = 'https://m.zfrontier.com/gamer';
 
 void main() => runApp(MyApp());
 
@@ -90,6 +90,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // On urlChanged stream
   StreamSubscription<WebViewStateChanged> _onStateChanged;
+  StreamSubscription<WebViewStateChanged> _onStateChanged2;
 
   StreamSubscription<WebViewHttpError> _onHttpError;
 
@@ -106,6 +107,8 @@ class _MyHomePageState extends State<MyHomePage> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _history = [];
+
+  bool _canGoBack = false;
 
   @override
   void initState() {
@@ -126,11 +129,14 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Add a listener to on url changed
-    _onUrlChanged = flutterWebViewPlugin.onUrlChanged.listen((String url) {
+    _onUrlChanged = flutterWebViewPlugin.onUrlChanged.listen((String url) async {
       print("url change listened: $url");
       if (mounted) {
+        final canGoBack = await flutterWebViewPlugin.canGoBack();
+        print("can go back: ${canGoBack}");
         setState(() {
           _history.add('onUrlChanged: $url');
+          _canGoBack = canGoBack;
         });
       }
     });
@@ -169,6 +175,14 @@ class _MyHomePageState extends State<MyHomePage> {
           _history.add('onStateChanged: ${state.type} ${state.url}');
         });
       }
+    });
+
+    _onStateChanged2 = flutterWebViewPlugin.onStateChanged.listen((WebViewStateChanged state) {
+      print("state change 2 listened: ${state.type}");
+    }, onDone: () {
+      print("state change stream done.");
+    }, onError: (_) {
+      print("state change stream error.");
     });
 
     _onHttpError = flutterWebViewPlugin.onHttpError.listen((WebViewHttpError error) {
@@ -284,6 +298,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 flutterWebViewPlugin.close();
               },
               child: const Text('Close'),
+            ),
+            RaisedButton(
+              onPressed: _canGoBack ?  () {
+                flutterWebViewPlugin.goBack();
+              } : null,
+              child: const Text('Back'),
             ),
             RaisedButton(
               onPressed: () {

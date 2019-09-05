@@ -67,6 +67,8 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         result(nil);
     } else if ([@"cleanCookies" isEqualToString:call.method]) {
         [self cleanCookies];
+    } else if ([@"canGoBack" isEqualToString:call.method]) {
+        [self onCanGoBack:call result:result];
     } else if ([@"back" isEqualToString:call.method]) {
         [self back];
         result(nil);
@@ -211,6 +213,16 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
                 [self.webview loadRequest:request];
             }
         }
+}
+
+- (void)onCanGoBack:(FlutterMethodCall*)call result:(FlutterResult)result {
+    if (self.webview != nil) {
+        BOOL canGoBack = [self.webview canGoBack];
+        result([NSNumber numberWithBool:canGoBack]);
+    } else {
+        result(false);
+    }
+
 }
 
 - (void)evalJavascript:(FlutterMethodCall*)call

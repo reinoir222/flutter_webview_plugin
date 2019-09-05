@@ -462,6 +462,15 @@ class WebviewManager {
         }
     }
     /**
+     * Check if Navigates can go back on the Webview.
+     */
+    void canGoBack(MethodCall call, MethodChannel.Result result) {
+        if (webView != null && webView.canGoBack()) {
+            result.success(true);
+        }
+        result.success(false);
+    }
+    /**
     * Navigates back on the Webview.
     */
     void back(MethodCall call, MethodChannel.Result result) {

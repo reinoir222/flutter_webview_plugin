@@ -72,6 +72,7 @@ class FlutterWebviewPlugin {
         _onProgressChanged.add(call.arguments["progress"]);
         break;
       case 'onState':
+        print("onState: " + call.arguments.toString());
         _onStateChanged.add(
           WebViewStateChanged.fromMap(
             Map<String, dynamic>.from(call.arguments),
@@ -235,6 +236,9 @@ class FlutterWebviewPlugin {
 
   /// Reloads the WebView.
   Future<Null> reload() async => await _channel.invokeMethod('reload');
+
+  /// Check if Navigates can go back on the Webview.
+  Future<bool> canGoBack() async => await _channel.invokeMethod('canGoBack');
 
   /// Navigates back on the Webview.
   Future<Null> goBack() async => await _channel.invokeMethod('back');
