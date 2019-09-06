@@ -152,6 +152,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     self.webview.scrollView.showsVerticalScrollIndicator = [scrollBar boolValue];
     
     [self.webview addObserver:self forKeyPath:@"estimatedProgress" options:NSKeyValueObservingOptionNew context:NULL];
+    [self.webview addObserver:self forKeyPath:@"URL" options:NSKeyValueObservingOptionNew context:NULL];
 
     WKPreferences* preferences = [[self.webview configuration] preferences];
     if ([withJavascript boolValue]) {
@@ -249,6 +250,8 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
     if ([keyPath isEqualToString:@"estimatedProgress"] && object == self.webview) {
         [channel invokeMethod:@"onProgressChanged" arguments:@{@"progress": @(self.webview.estimatedProgress)}];
+    } else if ([keyPath isEqualToString:@"URL"] && object == self.webview) {
+        [channel invokeMethod:@"onUpdateHistory" arguments:@{@"url": self.webview.URL.absoluteString, @"isReload": @false}];
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
     }
@@ -260,6 +263,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         [self.webview removeFromSuperview];
         self.webview.navigationDelegate = nil;
         [self.webview removeObserver:self forKeyPath:@"estimatedProgress"];
+        [self.webview removeObserver:self forKeyPath:@"URL"];
         self.webview = nil;
 
         // manually trigger onDestroy

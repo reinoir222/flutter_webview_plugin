@@ -80,7 +80,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   // Instance of WebView plugin
-  final flutterWebViewPlugin = FlutterWebviewPlugin();
+  FlutterWebviewPlugin flutterWebViewPlugin;
 
   // On destroy stream
   StreamSubscription _onDestroy;
@@ -90,11 +90,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
   // On urlChanged stream
   StreamSubscription<WebViewStateChanged> _onStateChanged;
-  StreamSubscription<WebViewStateChanged> _onStateChanged2;
 
   StreamSubscription<WebViewHttpError> _onHttpError;
 
   StreamSubscription<double> _onProgressChanged;
+
+  StreamSubscription<String> _onUpdateHistory;
 
   StreamSubscription<double> _onScrollYChanged;
 
@@ -114,12 +115,44 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
 
-    flutterWebViewPlugin.close();
-
     _urlCtrl.addListener(() {
       selectedUrl = _urlCtrl.text;
     });
 
+    _setupPlugin();
+    if (flutterWebViewPlugin != null) {
+      flutterWebViewPlugin.close();
+    }
+  }
+
+  void _processJsMessage (JavascriptMessage message) {
+    print("receive zFApp channel msg: ${message.message}");
+    // todo
+  }
+
+  void _setupPlugin() {
+    if (!mounted) return;
+    print("setup plugin");
+    final p = new FlutterWebviewPlugin();
+    if (flutterWebViewPlugin == p) return;
+    flutterWebViewPlugin = p;
+
+    print("set nav & js channel");
+    FlutterWebviewPlugin.navigationDelegate = (NavigationRequest r) {
+      print("nav request: ${r.url}");
+      if (r.url.startsWith('https://flutter.dev/docs/get-started/install')) {
+        print("nav prevent");
+        return NavigationDecision.prevent;
+      }
+      return NavigationDecision.navigate;
+    };
+
+    final List<JavascriptChannel> channels = <JavascriptChannel>[
+      JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
+    ];
+    FlutterWebviewPlugin.javascriptChannel = channels.toSet();
+
+    print("add listeners");
     // Add a listener to on destroy WebView, so you can make came actions.
     _onDestroy = flutterWebViewPlugin.onDestroy.listen((_) {
       if (mounted) {
@@ -132,10 +165,19 @@ class _MyHomePageState extends State<MyHomePage> {
     _onUrlChanged = flutterWebViewPlugin.onUrlChanged.listen((String url) async {
       print("url change listened: $url");
       if (mounted) {
+        setState(() {
+          _history.add('onUrlChanged: $url');
+        });
+      }
+    });
+
+    // Add a listener to on url changed
+    _onUpdateHistory = flutterWebViewPlugin.onUpdateHistory.listen((String url) async {
+      print("history change listened: $url");
+      if (mounted) {
         final canGoBack = await flutterWebViewPlugin.canGoBack();
         print("can go back: ${canGoBack}");
         setState(() {
-          _history.add('onUrlChanged: $url');
           _canGoBack = canGoBack;
         });
       }
@@ -175,14 +217,8 @@ class _MyHomePageState extends State<MyHomePage> {
           _history.add('onStateChanged: ${state.type} ${state.url}');
         });
       }
-    });
-
-    _onStateChanged2 = flutterWebViewPlugin.onStateChanged.listen((WebViewStateChanged state) {
-      print("state change 2 listened: ${state.type}");
     }, onDone: () {
-      print("state change stream done.");
-    }, onError: (_) {
-      print("state change stream error.");
+      _setupPlugin();
     });
 
     _onHttpError = flutterWebViewPlugin.onHttpError.listen((WebViewHttpError error) {
@@ -192,25 +228,6 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }
     });
-
-    FlutterWebviewPlugin.navigationDelegate = (NavigationRequest r) {
-      print("nav request: ${r.url}");
-      if (r.url.startsWith('https://flutter.dev/docs/get-started/install')) {
-        print("nav prevent");
-        return NavigationDecision.prevent;
-      }
-      return NavigationDecision.navigate;
-    };
-
-    final List<JavascriptChannel> channels = <JavascriptChannel>[
-      JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
-    ];
-    FlutterWebviewPlugin.javascriptChannel = channels.toSet();
-  }
-
-  void _processJsMessage (JavascriptMessage message) {
-    print("receive zFApp channel msg: ${message.message}");
-    // todo
   }
 
   @override

@@ -44,6 +44,7 @@ class FlutterWebviewPlugin {
   final _onScrollXChanged = StreamController<double>.broadcast();
   final _onScrollYChanged = StreamController<double>.broadcast();
   final _onProgressChanged = new StreamController<double>.broadcast();
+  final _onUpdateHistory = new StreamController<String>.broadcast();
   final _onHttpError = StreamController<WebViewHttpError>.broadcast();
 
   Future<bool> _handleMessages(MethodCall call) async {
@@ -70,6 +71,10 @@ class FlutterWebviewPlugin {
         break;
       case "onProgressChanged":
         _onProgressChanged.add(call.arguments["progress"]);
+        break;
+      case "onUpdateHistory":
+        print("on update history: ${call.arguments['url']}");
+        _onUpdateHistory.add(call.arguments['url']);
         break;
       case 'onState':
         print("onState: " + call.arguments.toString());
@@ -112,6 +117,9 @@ class FlutterWebviewPlugin {
 
   /// Listening web view loading progress estimation, value between 0.0 and 1.0
   Stream<double> get onProgressChanged => _onProgressChanged.stream;
+
+  /// Listening web view history/url changing
+  Stream<String> get onUpdateHistory => _onUpdateHistory.stream;
 
   /// Listening web view y position scroll change
   Stream<double> get onScrollYChanged => _onScrollYChanged.stream;
@@ -283,6 +291,7 @@ class FlutterWebviewPlugin {
     _onUrlChanged.close();
     _onStateChanged.close();
     _onProgressChanged.close();
+    _onUpdateHistory.close();
     _onScrollXChanged.close();
     _onScrollYChanged.close();
     _onHttpError.close();

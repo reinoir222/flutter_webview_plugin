@@ -47,6 +47,15 @@ public class BrowserClient extends WebViewClient {
     }
 
     @Override
+    public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+        super.doUpdateVisitedHistory(view, url, isReload);
+        Map<String, Object> data = new HashMap<>();
+        data.put("url", url);
+        data.put("isReload", isReload);
+        FlutterWebviewPlugin.channel.invokeMethod("onUpdateHistory", data);
+    }
+
+    @Override
     public void onPageStarted(WebView view, String url, Bitmap favicon) {
         super.onPageStarted(view, url, favicon);
         Map<String, Object> data = new HashMap<>();
