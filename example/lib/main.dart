@@ -239,6 +239,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _onStateChanged.cancel();
     _onHttpError.cancel();
     _onProgressChanged.cancel();
+    _onUpdateHistory.cancel();
     _onScrollXChanged.cancel();
     _onScrollYChanged.cancel();
 

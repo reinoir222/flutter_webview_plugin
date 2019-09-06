@@ -223,10 +223,10 @@ class FlutterWebviewPlugin {
 
     if (rect != null) {
       args['rect'] = {
-        'left': rect.left,
-        'top': rect.top,
-        'width': rect.width,
-        'height': rect.height,
+        'left': rect.left.floor(),
+        'top': rect.top.floor(),
+        'width': rect.width.ceil(),
+        'height': rect.height.ceil(),
       };
     }
     await _channel.invokeMethod('launch', args);
@@ -316,10 +316,10 @@ class FlutterWebviewPlugin {
   Future<Null> resize(Rect rect) async {
     final args = {};
     args['rect'] = {
-      'left': rect.left,
-      'top': rect.top,
-      'width': rect.width,
-      'height': rect.height,
+      'left': rect.left.floor(),
+      'top': rect.top.floor(),
+      'width': rect.width.ceil(),
+      'height': rect.height.ceil(),
     };
     await _channel.invokeMethod('resize', args);
   }
