@@ -95,10 +95,18 @@ public class BrowserClient extends WebViewClient {
         args.put("url", url);
         args.put("isForMainFrame", isForMainFrame);
         if (isForMainFrame) {
+            Map<String, String> headers = new HashMap();
+            Map rhs = request.getRequestHeaders();
+            if (rhs != null) {
+                headers.putAll(rhs);
+            }
+            if (FlutterWebviewPlugin.customHeader != null) {
+                headers.putAll(FlutterWebviewPlugin.customHeader);
+            }
             FlutterWebviewPlugin.channel.invokeMethod(
                     "onNavRequest",
                     args,
-                    new OnNavigationRequestResult(url, request.getRequestHeaders(), view)
+                    new OnNavigationRequestResult(url, headers, view)
             );
         } else {
             FlutterWebviewPlugin.channel.invokeMethod("onNavRequest", args);

@@ -29,6 +29,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     private WebviewManager webViewManager;
     private Context context;
     static MethodChannel channel;
+    static Map<String, String> customHeader;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
     private final Handler platformThreadHandler;
     static List<JavaScriptChannel> jsChannels = new ArrayList<JavaScriptChannel>();
@@ -113,7 +114,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         boolean withOverviewMode = call.argument("withOverviewMode");
         boolean supportMultipleWindows = call.argument("supportMultipleWindows");
         boolean appCacheEnabled = call.argument("appCacheEnabled");
-        Map<String, String> headers = call.argument("headers");
+        Map<String, String> headers = customHeader = call.argument("headers");
         boolean scrollBar = call.argument("scrollBar");
         boolean allowFileURLs = call.argument("allowFileURLs");
         boolean useWideViewPort = call.argument("useWideViewPort");
