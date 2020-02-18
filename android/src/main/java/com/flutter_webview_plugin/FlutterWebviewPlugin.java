@@ -34,7 +34,6 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     static MethodChannel channel;
     static Map<String, String> customHeader;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
-    private final Handler platformThreadHandler;
     private static final String JS_CHANNEL_NAMES_FIELD = "javascriptChannelNames";
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
@@ -49,7 +48,6 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     FlutterWebviewPlugin(Activity activity, Context context) {
         this.activity = activity;
         this.context = context;
-        this.platformThreadHandler = new Handler(context.getMainLooper());
     }
 
     @Override
@@ -142,7 +140,6 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             if (arguments.containsKey(JS_CHANNEL_NAMES_FIELD)) {
                 channelNames = (List<String>) arguments.get(JS_CHANNEL_NAMES_FIELD);
             }
-            System.out.println("init javascriptChannels: " + channelNames.toString());
             webViewManager = new WebviewManager(activity, context, channelNames);
         }
 
