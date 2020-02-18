@@ -7,11 +7,14 @@ import android.content.Intent;
 import android.graphics.Point;
 import android.os.Handler;
 import android.view.Display;
+import android.webkit.WebStorage;
 import android.widget.FrameLayout;
 import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
 import android.os.Build;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
@@ -32,16 +35,18 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     static Map<String, String> customHeader;
     private static final String CHANNEL_NAME = "flutter_webview_plugin";
     private final Handler platformThreadHandler;
-    static List<JavaScriptChannel> jsChannels = new ArrayList<JavaScriptChannel>();
+    private static final String JS_CHANNEL_NAMES_FIELD = "javascriptChannelNames";
 
     public static void registerWith(PluginRegistry.Registrar registrar) {
-        channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
-        final FlutterWebviewPlugin instance = new FlutterWebviewPlugin(registrar.activity(),registrar.activeContext());
-        registrar.addActivityResultListener(instance);
-        channel.setMethodCallHandler(instance);
+        if (registrar.activity() != null) {
+            channel = new MethodChannel(registrar.messenger(), CHANNEL_NAME);
+            final FlutterWebviewPlugin instance = new FlutterWebviewPlugin(registrar.activity(), registrar.activeContext());
+            registrar.addActivityResultListener(instance);
+            channel.setMethodCallHandler(instance);
+        }
     }
 
-    private FlutterWebviewPlugin(Activity activity, Context context) {
+    FlutterWebviewPlugin(Activity activity, Context context) {
         this.activity = activity;
         this.context = context;
         this.platformThreadHandler = new Handler(context.getMainLooper());
@@ -65,9 +70,6 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             case "reload":
                 reload(call, result);
                 break;
-            case "canGoBack":
-                canGoBack(call, result);
-                break;
             case "back":
                 back(call, result);
                 break;
@@ -89,11 +91,14 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             case "cleanCookies":
                 cleanCookies(call, result);
                 break;
-            case "addJavascriptChannels":
-                addJavaScriptChannels(call, result);
+            case "canGoBack":
+                canGoBack(result);
                 break;
-            case "removeJavascriptChannels":
-                removeJavaScriptChannels(call, result);
+            case "canGoForward":
+                canGoForward(result);
+                break;
+            case "cleanCache":
+                cleanCache(result);
                 break;
             default:
                 result.notImplemented();
@@ -101,13 +106,20 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         }
     }
 
-    private void openUrl(MethodCall call, MethodChannel.Result result) {
+    private void cleanCache(MethodChannel.Result result) {
+        webViewManager.cleanCache();
+        WebStorage.getInstance().deleteAllData();
+        result.success(null);
+    }
+
+    void openUrl(MethodCall call, MethodChannel.Result result) {
         boolean hidden = call.argument("hidden");
         String url = call.argument("url");
         String userAgent = call.argument("userAgent");
         boolean withJavascript = call.argument("withJavascript");
         boolean clearCache = call.argument("clearCache");
         boolean clearCookies = call.argument("clearCookies");
+        boolean mediaPlaybackRequiresUserGesture = call.argument("mediaPlaybackRequiresUserGesture");
         boolean withZoom = call.argument("withZoom");
         boolean displayZoomControls = call.argument("displayZoomControls");
         boolean withLocalStorage = call.argument("withLocalStorage");
@@ -122,12 +134,16 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         boolean geolocationEnabled = call.argument("geolocationEnabled");
         boolean debuggingEnabled = call.argument("debuggingEnabled");
         boolean hasNavigationDelegate = call.argument("hasNavigationDelegate");
+        boolean ignoreSSLErrors = call.argument("ignoreSSLErrors");
 
         if (webViewManager == null || webViewManager.closed == true) {
-            webViewManager = new WebviewManager(activity, context);
-            if (!jsChannels.isEmpty()) {
-                webViewManager.addJavaScriptChannels(jsChannels);
+            Map<String, Object> arguments = (Map<String, Object>) call.arguments;
+            List<String> channelNames = new ArrayList();
+            if (arguments.containsKey(JS_CHANNEL_NAMES_FIELD)) {
+                channelNames = (List<String>) arguments.get(JS_CHANNEL_NAMES_FIELD);
             }
+            System.out.println("init javascriptChannels: " + channelNames.toString());
+            webViewManager = new WebviewManager(activity, context, channelNames);
         }
 
         FrameLayout.LayoutParams params = buildLayoutParams(call);
@@ -138,6 +154,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
                 clearCache,
                 hidden,
                 clearCookies,
+                mediaPlaybackRequiresUserGesture,
                 userAgent,
                 url,
                 headers,
@@ -153,7 +170,8 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
                 invalidUrlRegex,
                 geolocationEnabled,
                 debuggingEnabled,
-                hasNavigationDelegate
+                hasNavigationDelegate,
+                ignoreSSLErrors
         );
         result.success(null);
     }
@@ -185,7 +203,7 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
         result.success(null);
     }
 
-    private void close(MethodCall call, MethodChannel.Result result) {
+    void close(MethodCall call, MethodChannel.Result result) {
         if (webViewManager != null) {
             webViewManager.close(call, result);
             webViewManager = null;
@@ -193,13 +211,15 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
     }
 
     /**
-     * Check if Navigates can go back on the Webview.
+     * Checks if can navigate back
+     *
+     * @param result
      */
-    private void canGoBack(MethodCall call, MethodChannel.Result result) {
+    private void canGoBack(MethodChannel.Result result) {
         if (webViewManager != null) {
-            webViewManager.canGoBack(call, result);
+            result.success(webViewManager.canGoBack());
         } else {
-            result.success(false);
+            result.error("Webview is null", null, null);
         }
     }
 
@@ -211,6 +231,18 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             webViewManager.back(call, result);
         }
         result.success(null);
+    }
+
+    /**
+     * Checks if can navigate forward
+     * @param result
+     */
+    private void canGoForward(MethodChannel.Result result) {
+        if (webViewManager != null) {
+            result.success(webViewManager.canGoForward());
+        } else {
+            result.error("Webview is null", null, null);
+        }
     }
 
     /**
@@ -285,32 +317,6 @@ public class FlutterWebviewPlugin implements MethodCallHandler, PluginRegistry.A
             });
         } else {
             CookieManager.getInstance().removeAllCookie();
-        }
-        result.success(null);
-    }
-
-    private void addJavaScriptChannels(MethodCall call, MethodChannel.Result result) {
-        List<String> channelNames = (List<String>) call.arguments;
-        for (String channelName : channelNames) {
-            jsChannels.add(new JavaScriptChannel(channel, channelName, platformThreadHandler));
-        }
-        if (webViewManager != null) {
-            webViewManager.addJavaScriptChannels(jsChannels);
-        }
-        result.success(null);
-    }
-
-    private void removeJavaScriptChannels(MethodCall call, MethodChannel.Result result) {
-        List<String> channelNames = (List<String>) call.arguments;
-        List<JavaScriptChannel> newChannels = new ArrayList<JavaScriptChannel>();
-        for (JavaScriptChannel c : jsChannels) {
-            if (channelNames.indexOf(c.javaScriptChannelName) < 0) {
-                newChannels.add(c);
-            }
-        }
-        jsChannels = newChannels;
-        if (webViewManager != null) {
-            webViewManager.removeJavaScriptChannels(call, result);
         }
         result.success(null);
     }

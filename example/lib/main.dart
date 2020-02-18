@@ -9,7 +9,19 @@ const kAndroidUserAgent =
 
 String selectedUrl = 'https://m.zfrontier.com/gamer';
 
-void main() => runApp(MyApp());
+// ignore: prefer_collection_literals
+final Set<JavascriptChannel> jsChannels = [
+  JavascriptChannel(
+      name: 'Print',
+      onMessageReceived: (JavascriptMessage message) {
+        print(message.message);
+      }),
+].toSet();
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   final flutterWebViewPlugin = FlutterWebviewPlugin();
@@ -26,6 +38,8 @@ class MyApp extends StatelessWidget {
         '/widget': (_) {
           return WebviewScaffold(
             url: selectedUrl,
+            javascriptChannels: jsChannels,
+            mediaPlaybackRequiresUserGesture: false,
             appBar: AppBar(
               title: const Text('Widget WebView'),
             ),
@@ -147,17 +161,13 @@ class _MyHomePageState extends State<MyHomePage> {
       return NavigationDecision.navigate;
     };
 
-    final List<JavascriptChannel> channels = <JavascriptChannel>[
-      JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
-    ];
-    FlutterWebviewPlugin.javascriptChannel = channels.toSet();
-
     print("add listeners");
     // Add a listener to on destroy WebView, so you can make came actions.
     _onDestroy = flutterWebViewPlugin.onDestroy.listen((_) {
       if (mounted) {
         // Actions like show a info toast.
-        _scaffoldKey.currentState.showSnackBar(const SnackBar(content: const Text('Webview Destroyed')));
+        _scaffoldKey.currentState.showSnackBar(
+            const SnackBar(content: const Text('Webview Destroyed')));
       }
     });
 
@@ -186,7 +196,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _onProgressChanged = flutterWebViewPlugin.onProgressChanged.listen((double progress) {
       if (mounted) {
         setState(() {
-          _history.add("onProgressChanged: $progress");
+          _history.add('onProgressChanged: $progress');
         });
       }
     });
@@ -200,7 +210,8 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     });
 
-    _onScrollXChanged = flutterWebViewPlugin.onScrollXChanged.listen((double x) {
+    _onScrollXChanged =
+        flutterWebViewPlugin.onScrollXChanged.listen((double x) {
       if (mounted) {
         setState(() {
           _history.add('Scroll in X Direction: $x');
@@ -211,7 +222,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _onStateChanged = flutterWebViewPlugin.onStateChanged.listen((WebViewStateChanged state) {
       print("state change listened: ${state.type}");
       if (mounted) {
-        print("send js msg");
+        print("send js msg: 'test: onState ${state.type}'");
         flutterWebViewPlugin.evalJavascript("zFApp.postMessage('test: onState ${state.type}');");
         setState(() {
           _history.add('onStateChanged: ${state.type} ${state.url}');
@@ -221,7 +232,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _setupPlugin();
     });
 
-    _onHttpError = flutterWebViewPlugin.onHttpError.listen((WebViewHttpError error) {
+    _onHttpError =
+        flutterWebViewPlugin.onHttpError.listen((WebViewHttpError error) {
       if (mounted) {
         setState(() {
           _history.add('onHttpError: ${error.code} ${error.url}');
@@ -250,6 +262,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // ignore: prefer_collection_literals
+    final Set<JavascriptChannel> channels = <JavascriptChannel>[
+      JavascriptChannel(name: 'zFApp', onMessageReceived: _processJsMessage)
+    ].toSet();
+
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -265,11 +282,15 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               onPressed: () {
+                flutterWebViewPlugin.close();
                 flutterWebViewPlugin.launch(
                   selectedUrl,
-                  rect: Rect.fromLTWH(0.0, 0.0, MediaQuery.of(context).size.width, 300.0),
+                  javascriptChannels: channels,
+                  rect: Rect.fromLTWH(
+                      0.0, 0.0, MediaQuery.of(context).size.width, 300.0),
                   userAgent: kAndroidUserAgent,
-                  invalidUrlRegex: r'^(https).+(twitter)', // prevent redirecting to twitter when user click on its icon in flutter website
+                  invalidUrlRegex:
+                      r'^(https).+(twitter)', // prevent redirecting to twitter when user click on its icon in flutter website
                 );
                 flutterWebViewPlugin.evalJavascript("zFApp.postMessage('test channel');");
               },
@@ -277,13 +298,15 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               onPressed: () {
-                flutterWebViewPlugin.launch(selectedUrl, hidden: true);
+                flutterWebViewPlugin.close();
+                flutterWebViewPlugin.launch(selectedUrl, hidden: true, javascriptChannels: channels,);
               },
               child: const Text('Open "hidden" Webview'),
             ),
             RaisedButton(
               onPressed: () {
-                flutterWebViewPlugin.launch(selectedUrl);
+                flutterWebViewPlugin.close();
+                flutterWebViewPlugin.launch(selectedUrl, javascriptChannels: channels,);
               },
               child: const Text('Open Fullscreen Webview'),
             ),
@@ -299,7 +322,8 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               onPressed: () {
-                final future = flutterWebViewPlugin.evalJavascript(_codeCtrl.text);
+                final future =
+                    flutterWebViewPlugin.evalJavascript(_codeCtrl.text);
                 future.then((String result) {
                   setState(() {
                     _history.add('eval: $result');

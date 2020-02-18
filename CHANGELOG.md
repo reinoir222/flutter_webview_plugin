@@ -1,3 +1,28 @@
+# 0.3.10+1
+- fixed android build
+
+# 0.3.10
+- add mediaPlaybackRequiresUserGesture parameter
+- Add ignore ssl error parameter
+
+# 0.3.9+1
+
+- Fixed error methods on iOS
+
+# 0.3.9
+
+- Fixed error methods on iOS
+- fixed build
+- fixed ios clean cookies
+- 4 Make plugin work in headless mode when extending FlutterApplication
+- added canGoBack and canGoForward methods
+
+# 0.3.8
+
+- Fix iOS local URL support (fixes #114)
+- bugfix: Added google() repository to allprojects to satisfy androidx build rules
+- fixed min sdk for android
+
 # 0.3.7
 
 - Added reloading url with headers
