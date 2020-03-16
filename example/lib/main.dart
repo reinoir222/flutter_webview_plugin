@@ -111,6 +111,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   StreamSubscription<String> _onUpdateHistory;
 
+  StreamSubscription<String> _onUpdateTitle;
+
   StreamSubscription<double> _onScrollYChanged;
 
   StreamSubscription<double> _onScrollXChanged;
@@ -193,6 +195,10 @@ class _MyHomePageState extends State<MyHomePage> {
       }
     });
 
+    _onUpdateTitle = flutterWebViewPlugin.onUpdateTitle.listen((String title) async {
+      print("title change listened: $title");
+    });
+
     _onProgressChanged = flutterWebViewPlugin.onProgressChanged.listen((double progress) {
       if (mounted) {
         setState(() {
@@ -252,6 +258,7 @@ class _MyHomePageState extends State<MyHomePage> {
     _onHttpError.cancel();
     _onProgressChanged.cancel();
     _onUpdateHistory.cancel();
+    _onUpdateTitle.cancel();
     _onScrollXChanged.cancel();
     _onScrollYChanged.cancel();
 

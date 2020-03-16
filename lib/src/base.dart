@@ -50,6 +50,7 @@ class FlutterWebviewPlugin {
   final _onScrollYChanged = StreamController<double>.broadcast();
   final _onProgressChanged = new StreamController<double>.broadcast();
   final _onUpdateHistory = new StreamController<String>.broadcast();
+  final _onUpdateTitle = new StreamController<String>.broadcast();
   final _onHttpError = StreamController<WebViewHttpError>.broadcast();
   final _onPostMessage = StreamController<JavascriptMessage>.broadcast();
 
@@ -86,6 +87,10 @@ class FlutterWebviewPlugin {
       case 'onUpdateHistory':
         print("on update history: ${call.arguments['url']}");
         _onUpdateHistory.add(call.arguments['url']);
+        break;
+      case 'onUpdateTitle':
+        print("on update title: ${call.arguments['title']}");
+        _onUpdateTitle.add(call.arguments['title']);
         break;
       case 'onState':
         print('onState: ' + call.arguments.toString());
@@ -131,6 +136,9 @@ class FlutterWebviewPlugin {
 
   /// Listening web view history/url changing
   Stream<String> get onUpdateHistory => _onUpdateHistory.stream;
+
+  /// Listening web view title changing
+  Stream<String> get onUpdateTitle => _onUpdateTitle.stream;
 
   /// Listening web view y position scroll change
   Stream<double> get onScrollYChanged => _onScrollYChanged.stream;
@@ -325,6 +333,7 @@ class FlutterWebviewPlugin {
     _onStateChanged.close();
     _onProgressChanged.close();
     _onUpdateHistory.close();
+    _onUpdateTitle.close();
     _onScrollXChanged.close();
     _onScrollYChanged.close();
     _onHttpError.close();

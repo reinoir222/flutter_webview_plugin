@@ -74,6 +74,12 @@ public class BrowserClient extends WebViewClient {
 
         data.put("type", "finishLoad");
         FlutterWebviewPlugin.channel.invokeMethod("onState", data);
+        String title = view.getTitle();
+        if (title != null) {
+            Map<String, String> titleData = new HashMap<>();
+            titleData.put("title", title);
+            FlutterWebviewPlugin.channel.invokeMethod("onUpdateTitle", titleData);
+        }
 
     }
 

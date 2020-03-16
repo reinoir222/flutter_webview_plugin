@@ -148,6 +148,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
     
     [self.webview addObserver:self forKeyPath:@"estimatedProgress" options:NSKeyValueObservingOptionNew context:NULL];
     [self.webview addObserver:self forKeyPath:@"URL" options:NSKeyValueObservingOptionNew context:NULL];
+    [self.webview addObserver:self forKeyPath:@"title" options:NSKeyValueObservingOptionNew context:NULL];
 
     WKPreferences* preferences = [[self.webview configuration] preferences];
     if ([withJavascript boolValue]) {
@@ -252,6 +253,8 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         [channel invokeMethod:@"onProgressChanged" arguments:@{@"progress": @(self.webview.estimatedProgress)}];
     } else if ([keyPath isEqualToString:@"URL"] && object == self.webview) {
         [channel invokeMethod:@"onUpdateHistory" arguments:@{@"url": self.webview.URL.absoluteString, @"isReload": @false}];
+    } else if ([keyPath isEqualToString:@"title"] && object == self.webview) {
+        [channel invokeMethod:@"onUpdateTitle" arguments:@{@"title": self.webview.title}];
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
     }
@@ -264,6 +267,7 @@ static NSString *const CHANNEL_NAME = @"flutter_webview_plugin";
         self.webview.navigationDelegate = nil;
         [self.webview removeObserver:self forKeyPath:@"estimatedProgress"];
         [self.webview removeObserver:self forKeyPath:@"URL"];
+        [self.webview removeObserver:self forKeyPath:@"title"];
         self.webview = nil;
 
         // manually trigger onDestroy
