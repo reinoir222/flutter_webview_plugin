@@ -341,6 +341,17 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             RaisedButton(
               onPressed: () {
+                final future = flutterWebViewPlugin.evalJavascript('if(confirm("confirm?")){alert("confirmed!");} else{alert("canceled!");}');
+                future.then((String result) {
+                  setState(() {
+                    _history.add('eval: $result');
+                  });
+                });
+              },
+              child: const Text('Eval javascript confirm()'),
+            ),
+            RaisedButton(
+              onPressed: () {
                 setState(() {
                   _history.clear();
                 });
